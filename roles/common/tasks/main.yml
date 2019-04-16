@@ -1,0 +1,48 @@
+---
+- name: Set authorized key taken from file
+  authorized_key:
+    user: kurone-kito
+    state: present
+    key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+- name: SSH additional settings.
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  become: yes
+  notify: Restart sshd
+  with_items:
+    - regexp: '^#?LoginGraceTime\s'
+      line: LoginGraceTime 30
+    - regexp: '^#?MaxAuthTries\s'
+      line: MaxAuthTries 3
+    - regexp: "^PasswordAuthentication yes"
+      line: PasswordAuthentication no
+    - regexp: '^#?PermitRootLogin\s'
+      line: PermitRootLogin no
+    - regexp: '^#?UseDNS\s'
+      line: UseDNS no
+- name: Change journal size
+  lineinfile:
+    dest: /etc/systemd/journald.conf
+    regexp: "^SystemMaxUse="
+    line: "SystemMaxUse=128M"
+  become: yes
+  notify: Restart journald
+- name: Upgrade base-system
+  shell: atomic host upgrade
+  become: yes
+  register: rpm_upgrade
+  changed_when: '"No upgrade available." not in rpm_upgrade.stdout'
+- name: Expose Docker remote API
+  lineinfile:
+    dest: /etc/sysconfig/docker
+    regexp: "OPTIONS='--selinux-enabled --log-driver=journald --live-restore'"
+    line: "OPTIONS='--selinux-enabled --log-driver=journald --live-restore -H=0.0.0.0:2375 -H=unix:///var/run/docker.sock'"
+  become: yes
+  notify: Restart docker
+- name: Determine whether OS restart is necessary or not.
+  debug:
+    var: rpm_upgrade.stdout
+  changed_when: '"systemctl reboot" in rpm_upgrade.stdout'
+  notify: Reboot OS

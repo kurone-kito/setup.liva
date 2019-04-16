@@ -1,0 +1,6 @@
+---
+- name: Setup for LIVA
+  hosts: daemonhost
+  gather_facts: no
+  roles:
+    - common

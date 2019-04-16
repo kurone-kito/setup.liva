@@ -1,0 +1,2 @@
+[daemonhost]
+'192.168.0.32' ansible_ssh_user=kurone-kito ansible_ssh_private_key_file='~/.ssh/id_ed25519'
